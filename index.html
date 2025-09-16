@@ -1,0 +1,2213 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Меню ресторана</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+    <style id="dynamic-styles">
+        :root {
+            --primary-text: #333333;
+            --secondary-text: #666666;  
+            --light-gray: #f5f5f5;
+            --divider: #e0e0e0;
+            --white: #ffffff;
+            --background: #fcd34d; /* Основной фон, который мы будем менять */
+            --primary: #ff8c32;
+            --primary-dark: #e87722;
+            --edit-overlay: rgba(0, 0, 0, 0.5);
+            --favorite-color: #FFD700; /* Золотой цвет для иконки избранного */
+            --spicy-color: #FF4500; /* Цвет для перчиков чили */
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            color: var(--primary-text);
+            background-color: var(--background);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .header-container {
+            position: relative;
+            width: 100%;
+            height: 240px;
+            overflow: hidden;
+        }
+
+        .restaurant-photo {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            transition: transform 1.2s ease-in-out;
+        }
+        
+        /* Анимация при наведении на фото */
+        .restaurant-photo:hover {
+            transform: scale(1.05);
+        }
+
+        .photo-edit-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--edit-overlay);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            color: var(--white);
+            font-size: 14px;
+            gap: 10px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        body.edit-mode .photo-edit-overlay {
+            display: flex;
+            opacity: 1;
+        }
+
+        .back-button {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            width: 36px;
+            height: 36px;
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            z-index: 2;
+            transition: all 0.2s ease;
+        }
+        
+        .back-button:hover {
+            transform: scale(1.1);
+            background-color: rgba(255, 255, 255, 1);
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+        }
+
+        .back-button svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .restaurant-logo {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid var(--white);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            z-index: 2;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        .restaurant-logo:hover {
+            transform: scale(1.1) rotate(5deg);
+        }
+
+        .logo-edit-overlay {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: var(--edit-overlay);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            color: var(--white);
+            z-index: 3;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        body.edit-mode .logo-edit-overlay {
+            display: flex;
+            opacity: 1;
+        }
+
+        .edit-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background-color: var(--primary);
+            color: var(--white);
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            z-index: 100;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .edit-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .edit-button:active {
+            background-color: var(--primary-dark);
+            transform: scale(0.95);
+        }
+
+        .edit-button i {
+            font-size: 20px;
+            transition: transform 0.3s ease;
+        }
+        
+        .edit-button:hover i {
+            transform: rotate(90deg);
+        }
+
+        body.edit-mode .edit-button {
+            background-color: var(--primary-dark);
+        }
+
+        body.edit-mode .edit-button i {
+            transform: rotate(135deg);
+        }
+
+        .menu-title {
+            text-align: center;
+            font-size: 20px;
+            font-weight: 700;
+            padding: 15px 0;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            animation: fadeIn 0.8s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .menu-container {
+            background-color: var(--white);
+            border-top-left-radius: 12px;
+            border-top-right-radius: 12px;
+            margin-top: -20px;
+            position: relative;
+            z-index: 10;
+            padding-top: 10px;
+            padding-bottom: 20px;
+            min-height: calc(100vh - 220px);
+            box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.1);
+            animation: slideUp 0.6s ease-out;
+        }
+        
+        @keyframes slideUp {
+            from { transform: translateY(50px); }
+            to { transform: translateY(0); }
+        }
+
+        .menu-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .menu-category {
+            border-bottom: 1px solid var(--divider);
+            transition: background-color 0.2s ease;
+            animation: fadeInCategory 0.5s ease forwards;
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        
+        @keyframes fadeInCategory {
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .menu-category:nth-child(1) { animation-delay: 0.1s; }
+        .menu-category:nth-child(2) { animation-delay: 0.2s; }
+        .menu-category:nth-child(3) { animation-delay: 0.3s; }
+        .menu-category:nth-child(4) { animation-delay: 0.4s; }
+        .menu-category:nth-child(5) { animation-delay: 0.5s; }
+
+        .menu-category:hover {
+            background-color: rgba(245, 245, 245, 0.5);
+        }
+
+        .category-header {
+            display: flex;
+            align-items: center;
+            padding: 16px 20px;
+            cursor: pointer;
+            position: relative;
+            -webkit-user-select: none;
+            user-select: none;
+            transition: padding-left 0.3s ease;
+        }
+        
+        .category-header:hover {
+            padding-left: 25px;
+        }
+
+        .category-icon {
+            margin-right: 16px;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+        
+        .category-header:hover .category-icon {
+            transform: scale(1.2);
+        }
+
+        .category-icon svg, .category-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            fill: currentColor;
+        }
+
+        .category-info {
+            flex: 1;
+        }
+
+        .category-title {
+            font-weight: 500;
+            font-size: 16px;
+            line-height: 1.5;
+            color: var(--primary-text);
+        }
+
+        .category-count {
+            font-size: 14px;
+            color: var(--secondary-text);
+            line-height: 1.4;
+        }
+
+        .toggle-icon {
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.3s ease;
+        }
+        
+        .category-header:hover .toggle-icon {
+            transform: rotate(-90deg);
+        }
+
+        .toggle-icon svg {
+            width: 18px;
+            height: 18px;
+            transition: transform 0.3s ease;
+        }
+
+        .category-header.collapsed .toggle-icon svg {
+            transform: rotate(-180deg);
+        }
+
+        .category-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s cubic-bezier(0, 1, 0, 1);
+        }
+
+        .category-content.expanded {
+            max-height: 2000px;
+            transition: max-height 1s ease-in-out;
+        }
+
+        .dish-list {
+            list-style: none;
+            padding: 0 20px 16px;
+        }
+
+        .dish-item {
+            margin-bottom: 16px;
+            display: flex;
+            position: relative;
+            transform-origin: left center;
+            animation: fadeInDish 0.4s ease forwards;
+            opacity: 0;
+            transform: translateX(20px);
+            transition: transform 0.3s ease;
+        }
+        
+        @keyframes fadeInDish {
+            to { opacity: 1; transform: translateX(0); }
+        }
+        
+        .dish-item:hover {
+            transform: translateX(5px);
+        }
+
+        .dish-info {
+            flex: 1;
+            position: relative;
+        }
+
+        .dish-name {
+            font-weight: 500;
+            font-size: 16px;
+            margin-bottom: 4px;
+            color: var(--primary-text);
+            padding-right: 30px; /* Оставляем место для иконки избранного */
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .dish-description {
+            font-size: 14px;
+            color: var(--secondary-text);
+            margin-bottom: 8px;
+        }
+
+        .dish-price {
+            font-weight: 500;
+            font-size: 15px;
+            color: var(--primary);
+            transition: color 0.3s ease;
+        }
+        
+        .dish-item:hover .dish-price {
+            color: var(--primary-dark);
+        }
+
+        /* Иконка избранного */
+        .favorite-icon {
+            position: absolute;
+            right: 0;
+            top: 0;
+            color: #cccccc;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.3s ease;
+        }
+        
+        .favorite-icon:hover {
+            transform: scale(1.2);
+        }
+        
+        .favorite-icon.active {
+            color: var(--favorite-color);
+            transform: scale(1.1);
+            animation: starPulse 0.5s ease;
+        }
+        
+        @keyframes starPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.5); }
+            100% { transform: scale(1.1); }
+        }
+
+        .dish-image-container {
+            position: relative;
+            margin-left: 16px;
+            overflow: hidden;
+            border-radius: 8px;
+        }
+
+        .dish-image {
+            width: 80px;
+            height: 80px;
+            border-radius: 8px;
+            object-fit: cover;
+            transition: transform 0.5s ease;
+        }
+        
+        .dish-item:hover .dish-image {
+            transform: scale(1.1);
+        }
+
+        .dish-edit-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--edit-overlay);
+            border-radius: 8px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            color: var(--white);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        body.edit-mode .dish-edit-overlay {
+            display: flex;
+            opacity: 1;
+        }
+
+        .editable {
+            position: relative;
+            border-bottom: 1px dashed transparent;
+            padding: 2px 0;
+            transition: border-color 0.3s ease;
+        }
+
+        body.edit-mode .editable {
+            border-bottom: 1px dashed var(--primary);
+            cursor: text;
+        }
+
+        .add-dish-button {
+            display: none;
+            margin-top: 10px;
+            margin-left: 20px;
+            padding: 8px 16px;
+            background-color: var(--light-gray);
+            border-radius: 20px;
+            color: var(--primary-text);
+            border: none;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            animation: fadeIn 0.4s ease-out;
+        }
+        
+        .add-dish-button:hover {
+            background-color: var(--divider);
+            transform: translateY(-2px);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        body.edit-mode .add-dish-button {
+            display: inline-block;
+        }
+
+        .add-category-button {
+            display: none;
+            margin: 20px auto;
+            padding: 10px 20px;
+            background-color: var(--light-gray);
+            border-radius: 20px;
+            color: var(--primary-text);
+            border: none;
+            font-size: 14px;
+            cursor: pointer;
+            width: calc(100% - 40px);
+            transition: all 0.3s ease;
+            animation: fadeIn 0.6s ease-out;
+        }
+        
+        .add-category-button:hover {
+            background-color: var(--divider);
+            transform: translateY(-2px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .add-category-button i {
+            transition: transform 0.3s ease;
+        }
+        
+        .add-category-button:hover i {
+            transform: rotate(90deg);
+        }
+
+        body.edit-mode .add-category-button {
+            display: block;
+        }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal.visible {
+            display: flex;
+            opacity: 1;
+        }
+
+        .modal-content {
+            background-color: var(--white);
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+            padding: 20px;
+            max-height: 90vh;
+            overflow-y: auto;
+            transform: translateY(30px);
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        .modal.visible .modal-content {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .modal-header {
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 500;
+            animation: slideRight 0.5s ease;
+        }
+        
+        @keyframes slideRight {
+            from { transform: translateX(-20px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        .modal-close {
+            font-size: 20px;
+            cursor: pointer;
+            color: var(--secondary-text);
+            transition: all 0.3s ease;
+        }
+        
+        .modal-close:hover {
+            color: var(--primary-text);
+            transform: rotate(90deg);
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+            animation: fadeIn 0.5s ease;
+            animation-fill-mode: both;
+        }
+        
+        .form-group:nth-child(1) { animation-delay: 0.1s; }
+        .form-group:nth-child(2) { animation-delay: 0.2s; }
+        .form-group:nth-child(3) { animation-delay: 0.3s; }
+        .form-group:nth-child(4) { animation-delay: 0.4s; }
+        .form-group:nth-child(5) { animation-delay: 0.5s; }
+
+        .form-label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--divider);
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(255, 140, 50, 0.2);
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background-color: var(--light-gray);
+            color: var(--primary-text);
+        }
+        
+        .btn-secondary:hover {
+            background-color: var(--divider);
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: var(--white);
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--primary-dark);
+        }
+
+        .file-input-container {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+
+        .file-input {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .file-input-label {
+            display: inline-block;
+            padding: 10px 12px;
+            border: 1px solid var(--divider);
+            border-radius: 6px;
+            background-color: var(--light-gray);
+            color: var(--primary-text);
+            font-size: 14px;
+            cursor: pointer;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+            transition: all 0.3s ease;
+        }
+        
+        .file-input-container:hover .file-input-label {
+            background-color: var(--divider);
+            border-color: var(--secondary-text);
+        }
+
+        .file-name {
+            margin-top: 6px;
+            font-size: 12px;
+            color: var(--secondary-text);
+            animation: fadeIn 0.3s ease;
+        }
+
+        .image-preview {
+            max-width: 100%;
+            margin-top: 10px;
+            border-radius: 6px;
+            display: none;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+            opacity: 0;
+            transform: scale(0.95);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .image-preview.visible {
+            display: block;
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .save-indicator {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            gap: 8px;
+            animation: slideInAndOut 2.5s forwards cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transform: translateY(50px);
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+        }
+        
+        @keyframes slideInAndOut {
+            0% { transform: translateY(50px); opacity: 0; }
+            15% { transform: translateY(0); opacity: 1; }
+            85% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(50px); opacity: 0; }
+        }
+        
+        .save-indicator i {
+            animation: pulse 0.7s infinite alternate;
+        }
+        
+        @keyframes pulse {
+            to { transform: scale(1.2); }
+        }
+
+        .icon-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-top: 10px;
+        }
+
+        .icon-option {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+            border: 1px solid var(--divider);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .icon-option:hover {
+            background-color: var(--light-gray);
+            transform: translateY(-3px);
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .icon-option.selected {
+            background-color: rgba(255, 140, 50, 0.1);
+            border-color: var(--primary);
+            transform: translateY(-3px);
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .icon-option .icon-display {
+            width: 24px;
+            height: 24px;
+            margin-bottom: 5px;
+            transition: transform 0.3s ease;
+        }
+
+        .icon-option:hover .icon-display, 
+        .icon-option.selected .icon-display {
+            transform: scale(1.2);
+        }
+
+        .icon-option .icon-name {
+            font-size: 12px;
+            color: var(--secondary-text);
+            text-align: center;
+        }
+        
+        .icon-option.custom-icon-upload {
+            border-style: dashed;
+            background-color: rgba(245, 245, 245, 0.5);
+        }
+        
+        .icon-option.custom-icon-upload:hover {
+            background-color: rgba(245, 245, 245, 0.8);
+        }
+        
+        .custom-icon-preview {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            object-fit: contain;
+            display: none;
+        }
+        
+        .custom-icon-preview.visible {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .custom-icon-input {
+            display: none;
+        }
+        
+        /* Кнопка настроек фона */
+        .bg-settings-button {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background-color: var(--white);
+            color: var(--primary);
+            border: none;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            z-index: 99;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        .bg-settings-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        .bg-settings-button i {
+            font-size: 18px;
+            transition: transform 0.3s ease;
+        }
+        
+        .bg-settings-button:hover i {
+            transform: rotate(45deg);
+        }
+        
+        body.edit-mode .bg-settings-button {
+            display: flex;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        /* Кнопка избранного */
+        .favorites-button {
+            position: fixed;
+            top: 15px;
+            right: 90px; /* Размещаем справа после логотипа */
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background-color: var(--white);
+            color: var(--favorite-color);
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            z-index: 90;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        .favorites-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Статус синхронизации */
+        .sync-status {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            opacity: 0;
+            transform: translateY(50px);
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+        
+        .sync-status.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .sync-status i.fa-sync {
+            animation: rotate 2s linear infinite;
+        }
+        
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="header-container">
+        <img src="https://images.unsplash.com/photo-1414235077428-338989a2e8c0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=MnwxfDB8MXxyYW5kb218MHx8cmVzdGF1cmFudHx8fHx8fDE2ODQxMjA1MDg&ixlib=rb-4.0.3&q=80&utm_campaign=api-credit&utm_medium=referral&utm_source=unsplash_source&w=1080" alt="Ресторан" class="restaurant-photo">
+        <div class="photo-edit-overlay">
+            <i class="fas fa-camera"></i>
+            <span>Изменить фото</span>
+        </div>
+        <button class="back-button">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M19 12H5M12 19l-7-7 7-7"></path>
+            </svg>
+        </button>
+        <img src="https://images.unsplash.com/photo-1512621776951-a57141f2eefd?crop=entropy&cs=tinysrgb&fit=crop&fm=jpg&h=200&ixid=MnwxfDB8MXxyYW5kb218MHx8Zm9vZHx8fHx8fDE2ODQxMjA1NDg&ixlib=rb-4.0.3&q=80&utm_campaign=api-credit&utm_medium=referral&utm_source=unsplash_source&w=200" alt="Логотип" class="restaurant-logo">
+        <div class="logo-edit-overlay">
+            <i class="fas fa-camera"></i>
+        </div>
+    </div>
+    
+    <div class="menu-container">
+        <h1 class="menu-title editable">Название ресторана</h1>
+        <ul class="menu-list">
+            <!-- Сюда будут вставлены категории меню из JavaScript -->
+        </ul>
+        <button class="add-category-button"><i class="fas fa-plus"></i> Добавить категорию</button>
+    </div>
+    
+    <button class="edit-button">
+        <i class="fas fa-pen"></i>
+    </button>
+    
+    <button class="bg-settings-button">
+        <i class="fas fa-palette"></i>
+    </button>
+    
+    <button class="favorites-button">
+        <i class="fas fa-star"></i>
+    </button>
+    
+    <!-- Статус синхронизации -->
+    <div class="sync-status">
+        <i class="fas fa-sync"></i>
+        <span>Синхронизация...</span>
+    </div>
+    
+    <!-- Модальное окно для редактирования категории -->
+    <div class="modal" id="categoryModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Добавить категорию</h2>
+                <span class="modal-close">&times;</span>
+            </div>
+            <form id="categoryForm">
+                <div class="form-group">
+                    <label for="categoryName" class="form-label">Название категории</label>
+                    <input type="text" id="categoryName" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Иконка категории</label>
+                    <div class="icon-grid">
+                        <div class="icon-option" data-icon="pizza">
+                            <svg class="icon-display" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2z"></path>
+                                <path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M19.07 4.93L4.93 19.07"></path>
+                            </svg>
+                            <span class="icon-name">Пицца</span>
+                        </div>
+                        <div class="icon-option" data-icon="burger">
+                            <svg class="icon-display" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M4 10h16M4 14h16M8 18l-4-4 4-4M16 6l4 4-4 4"></path>
+                            </svg>
+                            <span class="icon-name">Бургер</span>
+                        </div>
+                        <div class="icon-option" data-icon="sushi">
+                            <svg class="icon-display" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <circle cx="12" cy="12" r="4"></circle>
+                            </svg>
+                            <span class="icon-name">Суши</span>
+                        </div>
+                        <div class="icon-option" data-icon="salad">
+                            <svg class="icon-display" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M6 8v12M18 8v12M3 8h18M3 16h18"></path>
+                            </svg>
+                            <span class="icon-name">Салат</span>
+                        </div>
+                        <div class="icon-option" data-icon="drink">
+                            <svg class="icon-display" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M8 2h8M12 2v7M8 9h8l-4 13"></path>
+                            </svg>
+                            <span class="icon-name">Напитки</span>
+                        </div>
+                        <div class="icon-option" data-icon="dessert">
+                            <svg class="icon-display" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                <path d="M12 8v8M8 12h8"></path>
+                            </svg>
+                            <span class="icon-name">Десерт</span>
+                        </div>
+                        <div class="icon-option custom-icon-upload" data-icon="custom">
+                            <div class="icon-display">
+                                <i class="fas fa-upload"></i>
+                                <img src="" alt="Custom Icon" class="custom-icon-preview">
+                            </div>
+                            <span class="icon-name">Загрузить</span>
+                            <input type="file" class="custom-icon-input" accept="image/*">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary cancel-btn">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Модальное окно для редактирования блюда -->
+    <div class="modal" id="dishModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Добавить блюдо</h2>
+                <span class="modal-close">&times;</span>
+            </div>
+            <form id="dishForm">
+                <div class="form-group">
+                    <label for="dishName" class="form-label">Название блюда</label>
+                    <input type="text" id="dishName" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="dishDescription" class="form-label">Описание</label>
+                    <textarea id="dishDescription" class="form-control" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="dishPrice" class="form-label">Цена</label>
+                    <input type="text" id="dishPrice" class="form-control" placeholder="Например: 250 ₽" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Фото блюда</label>
+                    <div class="file-input-container">
+                        <label class="file-input-label">Выбрать файл</label>
+                        <input type="file" class="file-input" id="dishImage" accept="image/*">
+                    </div>
+                    <div class="file-name"></div>
+                    <img src="" alt="Preview" class="image-preview">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Дополнительно</label>
+                    <div class="extra-options">
+                        <div class="form-check">
+                            <input type="checkbox" id="dishSpicy" class="form-check-input">
+                            <label for="dishSpicy" class="form-check-label">Острое блюдо</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" id="dishFavorite" class="form-check-input">
+                            <label for="dishFavorite" class="form-check-label">Рекомендуемое блюдо</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary cancel-btn">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Модальное окно для настроек фона -->
+    <div class="modal" id="bgSettingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Настройки фона</h2>
+                <span class="modal-close">&times;</span>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Выберите цвет фона</label>
+                <div class="color-options">
+                    <button class="color-option" data-color="#fcd34d" style="background-color: #fcd34d;"></button>
+                    <button class="color-option" data-color="#f87171" style="background-color: #f87171;"></button>
+                    <button class="color-option" data-color="#60a5fa" style="background-color: #60a5fa;"></button>
+                    <button class="color-option" data-color="#4ade80" style="background-color: #4ade80;"></button>
+                    <button class="color-option" data-color="#c084fc" style="background-color: #c084fc;"></button>
+                    <button class="color-option" data-color="#f472b6" style="background-color: #f472b6;"></button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="customColor" class="form-label">Свой цвет (HEX)</label>
+                <input type="text" id="customColor" class="form-control" placeholder="#RRGGBB">
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary cancel-btn">Отмена</button>
+                <button type="button" id="applyBgSettings" class="btn btn-primary">Применить</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Модальное окно для показа избранных блюд -->
+    <div class="modal" id="favoritesModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Избранные блюда</h2>
+                <span class="modal-close">&times;</span>
+            </div>
+            <div class="favorites-list">
+                <!-- Список избранных блюд будет добавлен через JavaScript -->
+            </div>
+        </div>
+    </div>
+    
+    <div class="save-indicator">
+        <i class="fas fa-check-circle"></i>
+        <span>Изменения сохранены</span>
+    </div>
+
+    <script>
+        // Import the functions you need from the SDKs you need
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-analytics.js";
+        // TODO: Add SDKs for Firebase products that you want to use
+        // https://firebase.google.com/docs/web/setup#available-libraries
+
+        // Your web app's Firebase configuration
+        // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+        const firebaseConfig = {
+            apiKey: "AIzaSyDLa-b7aurgj5fqMG0eIpbiVdXymntZEL0",
+            authDomain: "menu-2b9ef.firebaseapp.com",
+            projectId: "menu-2b9ef",
+            storageBucket: "menu-2b9ef.firebasestorage.app",
+            messagingSenderId: "256037448573",
+            appId: "1:256037448573:web:57c7fc5f127df5bc403a14",
+            measurementId: "G-4YJGKZ4EDG"
+    };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+        
+        // Референс для меню в базе данных
+        const menuRef = database.ref('menu');
+        const settingsRef = database.ref('settings');
+
+        // Переменные для работы с меню
+        let menuData = [];
+        let editMode = false;
+        let currentCategoryIndex = null;
+        let currentDishIndex = null;
+        let favorites = [];
+        
+        // Статус синхронизации
+        const syncStatus = document.querySelector('.sync-status');
+        
+        // Показать статус синхронизации
+        function showSyncStatus() {
+            syncStatus.classList.add('visible');
+        }
+        
+        // Скрыть статус синхронизации
+        function hideSyncStatus() {
+            syncStatus.classList.remove('visible');
+        }
+
+        // Загрузка данных с Firebase при старте
+        function loadDataFromFirebase() {
+            showSyncStatus();
+            
+            // Получаем настройки
+            settingsRef.once('value')
+                .then(snapshot => {
+                    const settings = snapshot.val();
+                    if (settings) {
+                        if (settings.backgroundColor) {
+                            document.documentElement.style.setProperty('--background', settings.backgroundColor);
+                        }
+                        if (settings.restaurantName) {
+                            document.querySelector('.menu-title').textContent = settings.restaurantName;
+                        }
+                        if (settings.restaurantPhoto) {
+                            document.querySelector('.restaurant-photo').src = settings.restaurantPhoto;
+                        }
+                        if (settings.restaurantLogo) {
+                            document.querySelector('.restaurant-logo').src = settings.restaurantLogo;
+                        }
+                    }
+                });
+            
+            // Получаем меню
+            menuRef.once('value')
+                .then(snapshot => {
+                    const data = snapshot.val();
+                    if (data) {
+                        menuData = data;
+                        renderMenu();
+                        
+                        // Загружаем избранное из localStorage
+                        loadFavorites();
+                    } else {
+                        // Если данных нет, используем заготовку
+                        initializeDefaultMenu();
+                    }
+                    hideSyncStatus();
+                })
+                .catch(error => {
+                    console.error("Ошибка при загрузке данных:", error);
+                    hideSyncStatus();
+                    // Если не удалось загрузить данные, используем локальные
+                    initializeDefaultMenu();
+                });
+                
+            // Слушаем изменения в реальном времени
+            menuRef.on('value', snapshot => {
+                const data = snapshot.val();
+                if (data && !editMode) {  // Обновляем только если не в режиме редактирования
+                    menuData = data;
+                    renderMenu();
+                    
+                    // Показываем индикатор синхронизации
+                    showSaveIndicator("Данные синхронизированы");
+                }
+            });
+        }
+        
+        // Сохранение данных в Firebase
+        function saveDataToFirebase() {
+            showSyncStatus();
+            
+            // Сохраняем меню
+            menuRef.set(menuData)
+                .then(() => {
+                    hideSyncStatus();
+                    showSaveIndicator("Изменения сохранены");
+                })
+                .catch(error => {
+                    hideSyncStatus();
+                    console.error("Ошибка при сохранении данных:", error);
+                    showSaveIndicator("Ошибка сохранения", true);
+                });
+        }
+        
+        // Сохранение настроек в Firebase
+        function saveSettingsToFirebase(settings) {
+            showSyncStatus();
+            
+            settingsRef.update(settings)
+                .then(() => {
+                    hideSyncStatus();
+                    showSaveIndicator("Настройки сохранены");
+                })
+                .catch(error => {
+                    hideSyncStatus();
+                    console.error("Ошибка при сохранении настроек:", error);
+                    showSaveIndicator("Ошибка сохранения", true);
+                });
+        }
+        
+        // Загрузка изображения в Firebase Storage
+        function uploadImageToFirebase(file, path) {
+            return new Promise((resolve, reject) => {
+                showSyncStatus();
+                
+                const storageRef = storage.ref(path);
+                const uploadTask = storageRef.put(file);
+                
+                uploadTask.on('state_changed', 
+                    (snapshot) => {
+                        // Прогресс загрузки
+                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                        console.log('Загрузка: ' + progress + '%');
+                    }, 
+                    (error) => {
+                        // Ошибка
+                        hideSyncStatus();
+                        reject(error);
+                    }, 
+                    () => {
+                        // Загрузка завершена
+                        uploadTask.snapshot.ref.getDownloadURL().then((downloadURL) => {
+                            hideSyncStatus();
+                            resolve(downloadURL);
+                        });
+                    }
+                );
+            });
+        }
+
+        // Основной пример меню
+        function initializeDefaultMenu() {
+            menuData = [
+                {
+                    id: 'category1',
+                    name: 'Пицца',
+                    icon: 'pizza',
+                    dishes: [
+                        {
+                            id: 'dish1',
+                            name: 'Маргарита',
+                            description: 'Томатный соус, моцарелла, свежий базилик',
+                            price: '390 ₽',
+                            image: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?crop=entropy&cs=tinysrgb&fit=crop&fm=jpg&h=500&ixid=MnwxfDB8MXxyYW5kb218MHx8cGl6emF8fHx8fHwxNjg0MTIwNTc0&ixlib=rb-4.0.3&q=80&utm_campaign=api-credit&utm_medium=referral&utm_source=unsplash_source&w=500',
+                            favorite: false,
+                            spicy: false
+                        },
+                        {
+                            id: 'dish2',
+                            name: 'Пепперони',
+                            description: 'Томатный соус, моцарелла, пепперони',
+                            price: '450 ₽',
+                            image: 'https://images.unsplash.com/photo-1628840042765-356cda07504e?crop=entropy&cs=tinysrgb&fit=crop&fm=jpg&h=500&ixid=MnwxfDB8MXxyYW5kb218MHx8cGVwcGVyb25pfHx8fHx8MTY4NDEyMDU5OA&ixlib=rb-4.0.3&q=80&utm_campaign=api-credit&utm_medium=referral&utm_source=unsplash_source&w=500',
+                            favorite: true,
+                            spicy: true
+                        }
+                    ]
+                },
+                {
+                    id: 'category2',
+                    name: 'Бургеры',
+                    icon: 'burger',
+                    dishes: [
+                        {
+                            id: 'dish3',
+                            name: 'Классический бургер',
+                            description: 'Говяжья котлета, сыр, салат, томат, соус',
+                            price: '320 ₽',
+                            image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?crop=entropy&cs=tinysrgb&fit=crop&fm=jpg&h=500&ixid=MnwxfDB8MXxyYW5kb218MHx8YnVyZ2VyfHx8fHx8MTY4NDEyMDYxNA&ixlib=rb-4.0.3&q=80&utm_campaign=api-credit&utm_medium=referral&utm_source=unsplash_source&w=500',
+                            favorite: false,
+                            spicy: false
+                        }
+                    ]
+                },
+                {
+                    id: 'category3',
+                    name: 'Напитки',
+                    icon: 'drink',
+                    dishes: [
+                        {
+                            id: 'dish4',
+                            name: 'Лимонад',
+                            description: 'Классический лимонад с мятой и лимоном',
+                            price: '150 ₽',
+                            image: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?crop=entropy&cs=tinysrgb&fit=crop&fm=jpg&h=500&ixid=MnwxfDB8MXxyYW5kb218MHx8bGVtb25hZGV8fHx8fHwxNjg0MTIwNjMw&ixlib=rb-4.0.3&q=80&utm_campaign=api-credit&utm_medium=referral&utm_source=unsplash_source&w=500',
+                            favorite: false,
+                            spicy: false
+                        }
+                    ]
+                }
+            ];
+            
+            renderMenu();
+            saveDataToFirebase();
+        }
+
+        // Рендеринг меню
+        function renderMenu() {
+            const menuList = document.querySelector('.menu-list');
+            menuList.innerHTML = '';
+            
+            menuData.forEach((category, categoryIndex) => {
+                const categoryElement = document.createElement('li');
+                categoryElement.className = 'menu-category';
+                categoryElement.dataset.id = category.id;
+                
+                const categoryHeader = document.createElement('div');
+                categoryHeader.className = 'category-header';
+                categoryHeader.innerHTML = `
+                    <div class="category-icon">
+                        ${getCategoryIcon(category.icon)}
+                    </div>
+                    <div class="category-info">
+                        <div class="category-title editable">${category.name}</div>
+                        <div class="category-count">${category.dishes ? category.dishes.length : 0} ${getDishesCountText(category.dishes ? category.dishes.length : 0)}</div>
+                    </div>
+                    <div class="toggle-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                    </div>
+                `;
+                
+                const categoryContent = document.createElement('div');
+                categoryContent.className = 'category-content';
+                
+                const dishList = document.createElement('ul');
+                dishList.className = 'dish-list';
+                
+                if (category.dishes && category.dishes.length > 0) {
+                    category.dishes.forEach((dish, dishIndex) => {
+                        const dishElement = document.createElement('li');
+                        dishElement.className = 'dish-item';
+                        dishElement.dataset.id = dish.id;
+                        
+                        // Определяем, является ли блюдо острым
+                        const spicyIcon = dish.spicy ? `<span style="color: var(--spicy-color)"><i class="fas fa-pepper-hot"></i></span>` : '';
+                        
+                        dishElement.innerHTML = `
+                            <div class="dish-info">
+                                <div class="dish-name editable">${dish.name} ${spicyIcon}</div>
+                                <div class="dish-description editable">${dish.description || ''}</div>
+                                <div class="dish-price editable">${dish.price}</div>
+                                <div class="favorite-icon ${dish.favorite ? 'active' : ''}" data-category="${categoryIndex}" data-dish="${dishIndex}">
+                                    <i class="fas fa-star"></i>
+                                </div>
+                            </div>
+                            <div class="dish-image-container">
+                                <img src="${dish.image || 'https://via.placeholder.com/80'}" alt="${dish.name}" class="dish-image">
+                                <div class="dish-edit-overlay">
+                                    <i class="fas fa-camera"></i>
+                                </div>
+                            </div>
+                        `;
+                        
+                        dishList.appendChild(dishElement);
+                        
+                        // Анимация появления блюд с задержкой
+                        setTimeout(() => {
+                            dishElement.style.opacity = '1';
+                            dishElement.style.transform = 'translateX(0)';
+                        }, 50 * dishIndex);
+                    });
+                }
+                
+                categoryContent.appendChild(dishList);
+                
+                // Кнопка добавления блюда
+                const addDishButton = document.createElement('button');
+                addDishButton.className = 'add-dish-button';
+                addDishButton.innerHTML = '<i class="fas fa-plus"></i> Добавить блюдо';
+                addDishButton.dataset.category = categoryIndex;
+                
+                categoryContent.appendChild(addDishButton);
+                categoryElement.appendChild(categoryHeader);
+                categoryElement.appendChild(categoryContent);
+                menuList.appendChild(categoryElement);
+                
+                // Анимация появления категорий с задержкой
+                setTimeout(() => {
+                    categoryElement.style.opacity = '1';
+                    categoryElement.style.transform = 'translateY(0)';
+                }, 100 * categoryIndex);
+            });
+            
+            // Добавляем обработчики событий
+            setupEventListeners();
+        }
+        
+        // Получение иконки для категории
+        function getCategoryIcon(iconName) {
+            const iconMap = {
+                'pizza': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2z"></path><path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M19.07 4.93L4.93 19.07"></path></svg>`,
+                'burger': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h16M4 14h16M8 18l-4-4 4-4M16 6l4 4-4 4"></path></svg>`,
+                'sushi': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="4"></circle></svg>`,
+                'salad': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8v12M18 8v12M3 8h18M3 16h18"></path></svg>`,
+                'drink': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2h8M12 2v7M8 9h8l-4 13"></path></svg>`,
+                'dessert': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><path d="M12 8v8M8 12h8"></path></svg>`
+            };
+            
+            // Если это кастомная иконка (URL изображения)
+            if (iconName && iconName.startsWith('http')) {
+                return `<img src="${iconName}" alt="Category icon">`;
+            }
+            
+            return iconMap[iconName] || iconMap['pizza'];
+        }
+        
+        // Склонение слова "блюдо"
+        function getDishesCountText(count) {
+            const lastDigit = count % 10;
+            const lastTwoDigits = count % 100;
+            
+            if (lastTwoDigits >= 11 && lastTwoDigits <= 19) {
+                return 'блюд';
+            }
+            
+            if (lastDigit === 1) {
+                return 'блюдо';
+            }
+            
+            if (lastDigit >= 2 && lastDigit <= 4) {
+                return 'блюда';
+            }
+            
+            return 'блюд';
+        }
+        
+        // Настройка обработчиков событий
+        function setupEventListeners() {
+            // Переключение категорий
+            document.querySelectorAll('.category-header').forEach(header => {
+                header.addEventListener('click', function() {
+                    if (editMode) return; // В режиме редактирования не сворачиваем
+                    
+                    const content = this.nextElementSibling;
+                    const isExpanded = content.classList.contains('expanded');
+                    
+                    if (isExpanded) {
+                        content.classList.remove('expanded');
+                        this.classList.add('collapsed');
+                    } else {
+                        content.classList.add('expanded');
+                        this.classList.remove('collapsed');
+                    }
+                });
+            });
+            
+            // Переключение режима редактирования
+            document.querySelector('.edit-button').addEventListener('click', function() {
+                editMode = !editMode;
+                document.body.classList.toggle('edit-mode', editMode);
+                
+                // Если выходим из режима редактирования, сохраняем изменения
+                if (!editMode) {
+                    saveDataToFirebase();
+                }
+            });
+            
+            // Кнопка возврата назад
+            document.querySelector('.back-button').addEventListener('click', function() {
+                window.history.back();
+            });
+            
+            // Редактирование текстовых полей
+            document.querySelectorAll('.editable').forEach(element => {
+                element.addEventListener('click', function() {
+                    if (!editMode) return;
+                    
+                    const originalText = this.textContent;
+                    const isMenuTitle = this.classList.contains('menu-title');
+                    const isCategoryTitle = this.classList.contains('category-title');
+                    const isDishName = this.classList.contains('dish-name');
+                    const isDishDescription = this.classList.contains('dish-description');
+                    const isDishPrice = this.classList.contains('dish-price');
+                    
+                    // Находим индексы категории и блюда
+                    let categoryIndex, dishIndex;
+                    
+                    if (isCategoryTitle) {
+                        categoryIndex = Array.from(document.querySelectorAll('.menu-category')).indexOf(this.closest('.menu-category'));
+                    } else if (isDishName || isDishDescription || isDishPrice) {
+                        categoryIndex = Array.from(document.querySelectorAll('.menu-category')).indexOf(this.closest('.menu-category'));
+                        dishIndex = Array.from(this.closest('.dish-list').querySelectorAll('.dish-item')).indexOf(this.closest('.dish-item'));
+                    }
+                    
+                    const input = document.createElement(isDishDescription ? 'textarea' : 'input');
+                    input.type = 'text';
+                    input.value = originalText;
+                    input.className = 'edit-input form-control';
+                    
+                    if (isDishDescription) {
+                        input.rows = 3;
+                    }
+                    
+                    this.textContent = '';
+                    this.appendChild(input);
+                    input.focus();
+                    
+                    // Применяем изменения при потере фокуса или нажатии Enter
+                    const applyChanges = () => {
+                        const newText = input.value.trim();
+                        
+                        if (newText !== '') {
+                            if (isMenuTitle) {
+                                this.textContent = newText;
+                                saveSettingsToFirebase({ restaurantName: newText });
+                            } else if (isCategoryTitle) {
+                                this.textContent = newText;
+                                menuData[categoryIndex].name = newText;
+                            } else if (isDishName) {
+                                // Сохраняем статус "острое" если был
+                                const isSpicy = menuData[categoryIndex].dishes[dishIndex].spicy;
+                                const spicyIcon = isSpicy ? `<span style="color: var(--spicy-color)"><i class="fas fa-pepper-hot"></i></span>` : '';
+                                this.innerHTML = newText + ' ' + spicyIcon;
+                                menuData[categoryIndex].dishes[dishIndex].name = newText;
+                            } else if (isDishDescription) {
+                                this.textContent = newText;
+                                menuData[categoryIndex].dishes[dishIndex].description = newText;
+                            } else if (isDishPrice) {
+                                this.textContent = newText;
+                                menuData[categoryIndex].dishes[dishIndex].price = newText;
+                            }
+                        } else {
+                            this.textContent = originalText;
+                        }
+                    };
+                    
+                    input.addEventListener('blur', applyChanges);
+                    input.addEventListener('keydown', function(e) {
+                        if (e.key === 'Enter' && !isDishDescription) {
+                            applyChanges();
+                            input.blur();
+                        }
+                    });
+                });
+            });
+            
+            // Редактирование фото ресторана
+            document.querySelector('.photo-edit-overlay').addEventListener('click', function() {
+                if (!editMode) return;
+                
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'image/*';
+                
+                input.addEventListener('change', function(e) {
+                    if (e.target.files && e.target.files[0]) {
+                        const file = e.target.files[0];
+                        const reader = new FileReader();
+                        
+                        reader.onload = function(event) {
+                            document.querySelector('.restaurant-photo').src = event.target.result;
+                            
+                            // Загружаем файл в Firebase Storage и получаем URL
+                            uploadImageToFirebase(file, 'images/restaurant-photo.jpg')
+                                .then(url => {
+                                    saveSettingsToFirebase({ restaurantPhoto: url });
+                                })
+                                .catch(error => {
+                                    console.error("Ошибка при загрузке фото:", error);
+                                    showSaveIndicator("Ошибка загрузки фото", true);
+                                });
+                        };
+                        
+                        reader.readAsDataURL(file);
+                    }
+                });
+                
+                input.click();
+            });
+            
+            // Редактирование логотипа
+            document.querySelector('.logo-edit-overlay').addEventListener('click', function() {
+                if (!editMode) return;
+                
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'image/*';
+                
+                input.addEventListener('change', function(e) {
+                    if (e.target.files && e.target.files[0]) {
+                        const file = e.target.files[0];
+                        const reader = new FileReader();
+                        
+                        reader.onload = function(event) {
+                            document.querySelector('.restaurant-logo').src = event.target.result;
+                            
+                            // Загружаем файл в Firebase Storage и получаем URL
+                            uploadImageToFirebase(file, 'images/restaurant-logo.jpg')
+                                .then(url => {
+                                    saveSettingsToFirebase({ restaurantLogo: url });
+                                })
+                                .catch(error => {
+                                    console.error("Ошибка при загрузке логотипа:", error);
+                                    showSaveIndicator("Ошибка загрузки логотипа", true);
+                                });
+                        };
+                        
+                        reader.readAsDataURL(file);
+                    }
+                });
+                
+                input.click();
+            });
+            
+            // Редактирование фото блюда
+            document.querySelectorAll('.dish-edit-overlay').forEach(overlay => {
+                overlay.addEventListener('click', function() {
+                    if (!editMode) return;
+                    
+                    const dishItem = this.closest('.dish-item');
+                    const categoryIndex = Array.from(document.querySelectorAll('.menu-category')).indexOf(dishItem.closest('.menu-category'));
+                    const dishIndex = Array.from(dishItem.closest('.dish-list').querySelectorAll('.dish-item')).indexOf(dishItem);
+                    
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = 'image/*';
+                    
+                    input.addEventListener('change', function(e) {
+                        if (e.target.files && e.target.files[0]) {
+                            const file = e.target.files[0];
+                            const reader = new FileReader();
+                            
+                            reader.onload = function(event) {
+                                dishItem.querySelector('.dish-image').src = event.target.result;
+                                
+                                // Загружаем файл в Firebase Storage и получаем URL
+                                const path = `images/dishes/${menuData[categoryIndex].id}/${menuData[categoryIndex].dishes[dishIndex].id}.jpg`;
+                                uploadImageToFirebase(file, path)
+                                    .then(url => {
+                                        menuData[categoryIndex].dishes[dishIndex].image = url;
+                                    })
+                                    .catch(error => {
+                                        console.error("Ошибка при загрузке фото блюда:", error);
+                                        showSaveIndicator("Ошибка загрузки фото", true);
+                                    });
+                            };
+                            
+                            reader.readAsDataURL(file);
+                        }
+                    });
+                    
+                    input.click();
+                });
+            });
+            
+            // Добавление категории
+            document.querySelector('.add-category-button').addEventListener('click', function() {
+                if (!editMode) return;
+                
+                openCategoryModal();
+            });
+            
+            // Добавление блюда
+            document.querySelectorAll('.add-dish-button').forEach(button => {
+                button.addEventListener('click', function() {
+                    if (!editMode) return;
+                    
+                    currentCategoryIndex = parseInt(this.dataset.category);
+                    openDishModal();
+                });
+            });
+            
+            // Обработчики для модальных окон
+            setupModalEventListeners();
+            
+            // Обработка избранных блюд
+            document.querySelectorAll('.favorite-icon').forEach(icon => {
+                icon.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    
+                    const categoryIndex = parseInt(this.dataset.category);
+                    const dishIndex = parseInt(this.dataset.dish);
+                    const dish = menuData[categoryIndex].dishes[dishIndex];
+                    
+                    // Меняем статус избранного
+                    dish.favorite = !dish.favorite;
+                    this.classList.toggle('active', dish.favorite);
+                    
+                    // Обновляем список избранного
+                    updateFavorites();
+                    
+                    // Если в режиме редактирования, сохраняем данные
+                    if (editMode) {
+                        saveDataToFirebase();
+                    }
+                });
+            });
+            
+            // Настройка фона
+            document.querySelector('.bg-settings-button').addEventListener('click', function() {
+                openBgSettingsModal();
+            });
+            
+            // Кнопка избранного
+            document.querySelector('.favorites-button').addEventListener('click', function() {
+                openFavoritesModal();
+            });
+        }
+        
+        // Настройка обработчиков для модальных окон
+        function setupModalEventListeners() {
+            // Закрытие модальных окон
+            document.querySelectorAll('.modal-close, .cancel-btn').forEach(element => {
+                element.addEventListener('click', function() {
+                    closeAllModals();
+                });
+            });
+            
+            // Закрытие модальных окон при клике вне содержимого
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        closeAllModals();
+                    }
+                });
+            });
+            
+            // Обработка формы категории
+            document.getElementById('categoryForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const categoryName = document.getElementById('categoryName').value.trim();
+                const selectedIcon = document.querySelector('.icon-option.selected');
+                
+                if (categoryName && selectedIcon) {
+                    const iconName = selectedIcon.dataset.icon;
+                    let iconValue = iconName;
+                    
+                    // Если это кастомная иконка, используем URL изображения
+                    if (iconName === 'custom' && document.querySelector('.custom-icon-preview').classList.contains('visible')) {
+                        iconValue = document.querySelector('.custom-icon-preview').src;
+                    }
+                    
+                    // Создаем новую категорию
+                    const newCategory = {
+                        id: 'category' + Date.now(),
+                        name: categoryName,
+                        icon: iconValue,
+                        dishes: []
+                    };
+                    
+                    menuData.push(newCategory);
+                    renderMenu();
+                    closeAllModals();
+                }
+            });
+            
+            // Обработка формы блюда
+            document.getElementById('dishForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const dishName = document.getElementById('dishName').value.trim();
+                const dishDescription = document.getElementById('dishDescription').value.trim();
+                const dishPrice = document.getElementById('dishPrice').value.trim();
+                const dishSpicy = document.getElementById('dishSpicy').checked;
+                const dishFavorite = document.getElementById('dishFavorite').checked;
+                
+                if (dishName && dishPrice) {
+                    // Создаем новое блюдо
+                    const newDish = {
+                        id: 'dish' + Date.now(),
+                        name: dishName,
+                        description: dishDescription,
+                        price: dishPrice,
+                        image: document.querySelector('.image-preview.visible') ? document.querySelector('.image-preview').src : 'https://via.placeholder.com/80',
+                        favorite: dishFavorite,
+                        spicy: dishSpicy
+                    };
+                    
+                    // Если редактируем существующее блюдо
+                    if (currentDishIndex !== null) {
+                        menuData[currentCategoryIndex].dishes[currentDishIndex] = newDish;
+                    } else {
+                        // Добавляем новое блюдо
+                        if (!menuData[currentCategoryIndex].dishes) {
+                            menuData[currentCategoryIndex].dishes = [];
+                        }
+                        menuData[currentCategoryIndex].dishes.push(newDish);
+                    }
+                    
+                    renderMenu();
+                    closeAllModals();
+                    
+                    // Обновляем список избранного
+                    updateFavorites();
+                }
+            });
+            
+            // Выбор иконки категории
+            document.querySelectorAll('.icon-option').forEach(option => {
+                option.addEventListener('click', function() {
+                    document.querySelectorAll('.icon-option').forEach(opt => opt.classList.remove('selected'));
+                    this.classList.add('selected');
+                });
+            });
+            
+            // Загрузка кастомной иконки
+            document.querySelector('.custom-icon-input').addEventListener('change', function(e) {
+                if (e.target.files && e.target.files[0]) {
+                    const file = e.target.files[0];
+                    const reader = new FileReader();
+                    
+                    reader.onload = function(event) {
+                        const preview = document.querySelector('.custom-icon-preview');
+                        preview.src = event.target.result;
+                        preview.classList.add('visible');
+                        
+                        // Выбираем опцию кастомной иконки
+                        document.querySelectorAll('.icon-option').forEach(opt => opt.classList.remove('selected'));
+                        document.querySelector('.icon-option.custom-icon-upload').classList.add('selected');
+                    };
+                    
+                    reader.readAsDataURL(file);
+                }
+            });
+            
+            // Обработка загрузки изображения блюда
+            document.getElementById('dishImage').addEventListener('change', function(e) {
+                if (e.target.files && e.target.files[0]) {
+                    const file = e.target.files[0];
+                    const reader = new FileReader();
+                    
+                    reader.onload = function(event) {
+                        document.querySelector('.file-name').textContent = file.name;
+                        const preview = document.querySelector('.image-preview');
+                        preview.src = event.target.result;
+                        preview.classList.add('visible');
+                    };
+                    
+                    reader.readAsDataURL(file);
+                }
+            });
+            
+            // Настройки фона
+            document.querySelectorAll('.color-option').forEach(option => {
+                option.addEventListener('click', function() {
+                    document.querySelectorAll('.color-option').forEach(opt => opt.classList.remove('selected'));
+                    this.classList.add('selected');
+                    
+                    const color = this.dataset.color;
+                    document.getElementById('customColor').value = color;
+                    document.documentElement.style.setProperty('--background', color);
+                });
+            });
+            
+            // Применение настроек фона
+            document.getElementById('applyBgSettings').addEventListener('click', function() {
+                const color = document.getElementById('customColor').value.trim();
+                
+                if (color.match(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/)) {
+                    document.documentElement.style.setProperty('--background', color);
+                    closeAllModals();
+                    
+                    // Сохраняем настройки в Firebase
+                    saveSettingsToFirebase({ backgroundColor: color });
+                } else {
+                    alert('Пожалуйста, введите корректный HEX-код цвета (например, #FF5500)');
+                }
+            });
+        }
+        
+        // Открытие модального окна для добавления/редактирования категории
+        function openCategoryModal(categoryIndex = null) {
+            const modal = document.getElementById('categoryModal');
+            const form = document.getElementById('categoryForm');
+            const titleElement = modal.querySelector('.modal-title');
+            
+            currentCategoryIndex = categoryIndex;
+            
+            if (categoryIndex !== null) {
+                titleElement.textContent = 'Редактировать категорию';
+                
+                const category = menuData[categoryIndex];
+                document.getElementById('categoryName').value = category.name;
+                
+                // Выбираем соответствующую иконку
+                document.querySelectorAll('.icon-option').forEach(option => {
+                    if (option.dataset.icon === category.icon) {
+                        option.classList.add('selected');
+                    } else {
+                        option.classList.remove('selected');
+                    }
+                });
+            } else {
+                titleElement.textContent = 'Добавить категорию';
+                form.reset();
+                document.querySelectorAll('.icon-option').forEach(option => option.classList.remove('selected'));
+                document.querySelector('.custom-icon-preview').classList.remove('visible');
+            }
+            
+            modal.classList.add('visible');
+            setTimeout(() => {
+                modal.querySelector('.modal-content').style.opacity = '1';
+                modal.querySelector('.modal-content').style.transform = 'translateY(0)';
+            }, 10);
+        }
+        
+        // Открытие модального окна для добавления/редактирования блюда
+        function openDishModal(categoryIndex = null, dishIndex = null) {
+            const modal = document.getElementById('dishModal');
+            const form = document.getElementById('dishForm');
+            const titleElement = modal.querySelector('.modal-title');
+            
+            if (categoryIndex !== null) currentCategoryIndex = categoryIndex;
+            currentDishIndex = dishIndex;
+            
+            if (dishIndex !== null) {
+                titleElement.textContent = 'Редактировать блюдо';
+                
+                const dish = menuData[currentCategoryIndex].dishes[dishIndex];
+                document.getElementById('dishName').value = dish.name;
+                document.getElementById('dishDescription').value = dish.description || '';
+                document.getElementById('dishPrice').value = dish.price;
+                document.getElementById('dishSpicy').checked = dish.spicy;
+                document.getElementById('dishFavorite').checked = dish.favorite;
+                
+                // Показываем превью изображения
+                if (dish.image) {
+                    const preview = document.querySelector('.image-preview');
+                    preview.src = dish.image;
+                    preview.classList.add('visible');
+                    document.querySelector('.file-name').textContent = 'Текущее изображение';
+                }
+            } else {
+                titleElement.textContent = 'Добавить блюдо';
+                form.reset();
+                document.querySelector('.image-preview').classList.remove('visible');
+                document.querySelector('.file-name').textContent = '';
+            }
+            
+            modal.classList.add('visible');
+            setTimeout(() => {
+                modal.querySelector('.modal-content').style.opacity = '1';
+                modal.querySelector('.modal-content').style.transform = 'translateY(0)';
+            }, 10);
+        }
+        
+        // Открытие модального окна настроек фона
+        function openBgSettingsModal() {
+            const modal = document.getElementById('bgSettingsModal');
+            
+            // Получаем текущий цвет фона
+            const currentColor = getComputedStyle(document.documentElement).getPropertyValue('--background').trim();
+            document.getElementById('customColor').value = currentColor;
+            
+            // Выбираем соответствующую опцию
+            document.querySelectorAll('.color-option').forEach(option => {
+                if (option.dataset.color === currentColor) {
+                    option.classList.add('selected');
+                } else {
+                    option.classList.remove('selected');
+                }
+            });
+            
+            modal.classList.add('visible');
+            setTimeout(() => {
+                modal.querySelector('.modal-content').style.opacity = '1';
+                modal.querySelector('.modal-content').style.transform = 'translateY(0)';
+            }, 10);
+        }
+        
+        // Открытие модального окна избранных блюд
+        function openFavoritesModal() {
+            const modal = document.getElementById('favoritesModal');
+            const favoritesList = modal.querySelector('.favorites-list');
+            
+            // Очищаем список
+            favoritesList.innerHTML = '';
+            
+            // Собираем все избранные блюда
+            const favorites = [];
+            menuData.forEach((category, categoryIndex) => {
+                if (category.dishes) {
+                    category.dishes.forEach((dish, dishIndex) => {
+                        if (dish.favorite) {
+                            favorites.push({
+                                categoryIndex,
+                                dishIndex,
+                                dish,
+                                categoryName: category.name
+                            });
+                        }
+                    });
+                }
+            });
+            
+            // Если есть избранные блюда
+            if (favorites.length > 0) {
+                favorites.forEach(item => {
+                    const favoriteItem = document.createElement('div');
+                    favoriteItem.className = 'favorite-item';
+                    favoriteItem.innerHTML = `
+                        <div class="favorite-dish">
+                            <div class="favorite-dish-name">${item.dish.name}</div>
+                            <div class="favorite-dish-category">${item.categoryName}</div>
+                            <div class="favorite-dish-price">${item.dish.price}</div>
+                        </div>
+                    `;
+                    
+                    favoritesList.appendChild(favoriteItem);
+                });
+            } else {
+                // Если нет избранных блюд
+                favoritesList.innerHTML = '<div class="no-favorites">У вас пока нет избранных блюд</div>';
+            }
+            
+            modal.classList.add('visible');
+            setTimeout(() => {
+                modal.querySelector('.modal-content').style.opacity = '1';
+                modal.querySelector('.modal-content').style.transform = 'translateY(0)';
+            }, 10);
+        }
+        
+        // Закрытие всех модальных окон
+        function closeAllModals() {
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.querySelector('.modal-content').style.opacity = '0';
+                modal.querySelector('.modal-content').style.transform = 'translateY(30px)';
+                
+                setTimeout(() => {
+                    modal.classList.remove('visible');
+                }, 300);
+            });
+        }
+        
+        // Показ индикатора сохранения
+        function showSaveIndicator(message = "Изменения сохранены", isError = false) {
+            const indicator = document.querySelector('.save-indicator');
+            indicator.querySelector('span').textContent = message;
+            
+            if (isError) {
+                indicator.querySelector('i').className = 'fas fa-exclamation-circle';
+                indicator.style.backgroundColor = 'rgba(220, 53, 69, 0.9)';
+            } else {
+                indicator.querySelector('i').className = 'fas fa-check-circle';
+                indicator.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+            }
+            
+            indicator.style.display = 'flex';
+            
+            setTimeout(() => {
+                indicator.style.display = 'none';
+            }, 2500);
+        }
+        
+        // Работа с избранными блюдами
+        function updateFavorites() {
+            // Обновляем локальное хранилище
+            const favorites = [];
+            
+            menuData.forEach((category, categoryIndex) => {
+                if (category.dishes) {
+                    category.dishes.forEach((dish, dishIndex) => {
+                        if (dish.favorite) {
+                            favorites.push({
+                                categoryIndex,
+                                dishIndex,
+                                dishId: dish.id
+                            });
+                        }
+                    });
+                }
+            });
+            
+            localStorage.setItem('favorites', JSON.stringify(favorites));
+        }
+        
+        // Загрузка избранных блюд из localStorage
+        function loadFavorites() {
+            const savedFavorites = localStorage.getItem('favorites');
+            
+            if (savedFavorites) {
+                const favorites = JSON.parse(savedFavorites);
+                
+                favorites.forEach(item => {
+                    // Ищем блюдо по ID и устанавливаем favorite = true
+                    menuData.forEach((category, categoryIndex) => {
+                        if (category.dishes) {
+                            category.dishes.forEach((dish, dishIndex) => {
+                                if (dish.id === item.dishId) {
+                                    dish.favorite = true;
+                                }
+                            });
+                        }
+                    });
+                });
+                
+                // Перерисовываем меню с учетом избранных блюд
+                renderMenu();
+            }
+        }
+        
+        // Инициализация приложения
+        document.addEventListener('DOMContentLoaded', function() {
+            // Загружаем данные из Firebase
+            loadDataFromFirebase();
+        });
+    </script>
+</body>
+</html>
